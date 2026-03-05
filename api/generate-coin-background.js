@@ -31,10 +31,27 @@ async function generateImage(promptText) {
     }
   );
 
-  const data = await response.json();
+  const text = await response.text();
+
+  if (!text) {
+    throw new Error("Empty response from Imagen API");
+  }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (err) {
+    console.error("Invalid JSON:", text);
+    throw new Error("Invalid JSON response from API");
+  }
+
+  if (!response.ok) {
+    console.error("API Error:", data);
+    throw new Error(data?.error?.message || "Image generation failed");
+  }
 
   if (!data?.images?.length) {
-    console.log("Imagen response:", JSON.stringify(data, null, 2));
+    console.error("Imagen response:", data);
     throw new Error("No image generated");
   }
 

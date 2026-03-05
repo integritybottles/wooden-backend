@@ -16,48 +16,37 @@ function runMiddleware(req, res, fn) {
   });
 }
 
-async function generateImage(promptText) {
+async function generateImage(prompt) {
+
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate:generateImage?key=${process.env.GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${process.env.GEMINI_API_KEY}`,
     {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        prompt: promptText,
-        sampleCount: 1,
-      }),
+        contents: [
+          {
+            parts: [{ text: prompt }]
+          }
+        ],
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"]
+        }
+      })
     }
   );
 
-  const text = await response.text();
+  const data = await response.json();
 
-  if (!text) {
-    throw new Error("Empty response from Imagen API");
-  }
+  const parts = data.candidates?.[0]?.content?.parts || [];
 
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch (err) {
-    console.error("Invalid JSON:", text);
-    throw new Error("Invalid JSON response from API");
-  }
+  const imagePart = parts.find(p => p.inlineData);
 
-  if (!response.ok) {
-    console.error("API Error:", data);
-    throw new Error(data?.error?.message || "Image generation failed");
-  }
+  if (!imagePart) throw new Error("No image generated");
 
-  if (!data?.images?.length) {
-    console.error("Imagen response:", data);
-    throw new Error("No image generated");
-  }
-
-  const image = data.images[0];
-
-  return `data:image/png;base64,${image.base64}`;
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 }
 
 export default async function handler(req, res) {

@@ -17,41 +17,44 @@ function runMiddleware(req, res, fn) {
 }
 
 async function generateImage(prompt) {
+  // ✅ CORRECT MODEL NAME
+  const model = "gemini-2.0-flash-exp";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ["IMAGE"], // Keep uppercase as before
       },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: prompt }
-            ]
-          }
-        ],
-        generationConfig: {
-          responseModalities: ["IMAGE"]
-        }
-      })
-    }
-  );
+    }),
+  });
 
   const data = await response.json();
 
+  // Better error logging
   console.log("Gemini response:", JSON.stringify(data, null, 2));
+
+  // Check for API error first
+  if (data.error) {
+    throw new Error(`Gemini API error: ${data.error.message}`);
+  }
 
   if (!data.candidates || !data.candidates.length) {
     throw new Error("Gemini returned no candidates");
   }
 
   const parts = data.candidates[0].content.parts;
-
-  const imagePart = parts.find(p => p.inlineData);
+  const imagePart = parts.find((p) => p.inlineData);
 
   if (!imagePart) {
     throw new Error("Gemini did not return an image");
@@ -61,6 +64,7 @@ async function generateImage(prompt) {
 }
 
 export default async function handler(req, res) {
+  // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -70,6 +74,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
 
   try {
+    // Parse multipart form data
     await runMiddleware(req, res, multerMiddleware);
 
     const {
@@ -128,8 +133,7 @@ sharp details, studio lighting, premium collectible coin.
           .json({ error: "Patch description required" });
       }
 
-      const extra =
-        velcro === "yes" ? "Include velcro backing." : "";
+      const extra = velcro === "yes" ? "Include velcro backing." : "";
 
       const patchPrompt = `
 Detailed embroidered military unit patch.
@@ -151,8 +155,7 @@ high quality patch design.
       });
     }
   } catch (error) {
-    console.error(error);
-
+    console.error("Handler error:", error);
     return res.status(500).json({
       success: false,
       error: error.message || "Generation failed",

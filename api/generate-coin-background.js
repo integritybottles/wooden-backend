@@ -17,8 +17,14 @@ function runMiddleware(req, res, fn) {
 }
 
 async function generateWithGemini(promptText, imageFiles = []) {
+  // Validate API key presence
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY is not set in environment variables');
+  }
+
   const parts = [{ text: promptText }];
 
+  // Include up to 3 reference images (if provided)
   imageFiles.slice(0, 3).forEach(file => {
     parts.push({
       inlineData: {
@@ -28,28 +34,34 @@ async function generateWithGemini(promptText, imageFiles = []) {
     });
   });
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts }]
-      })
-    }
-  );
+  // Corrected model name
+  const model = 'gemini-2.0-flash-exp';  // ✅ FIXED
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts }]
+    })
+  });
 
   const data = await response.json();
 
+  // Check for API error response
+  if (data.error) {
+    console.error('Gemini API error:', data.error);
+    throw new Error(`Gemini API error: ${data.error.message} (code ${data.error.code})`);
+  }
+
   if (!data.candidates?.length) {
-    console.log("Gemini response:", JSON.stringify(data, null, 2));
+    console.log('Gemini response (no candidates):', JSON.stringify(data, null, 2));
     throw new Error('No image generated');
   }
 
   const partsResp = data.candidates[0].content?.parts || [];
 
   let imagePart = null;
-
   for (const part of partsResp) {
     if (part.inlineData?.data) {
       imagePart = part;
@@ -58,7 +70,7 @@ async function generateWithGemini(promptText, imageFiles = []) {
   }
 
   if (!imagePart) {
-    console.log("Gemini response:", JSON.stringify(data, null, 2));
+    console.log('Gemini response (no inline image):', JSON.stringify(data, null, 2));
     throw new Error('No image returned from Gemini');
   }
 
@@ -66,6 +78,7 @@ async function generateWithGemini(promptText, imageFiles = []) {
 }
 
 export default async function handler(req, res) {
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -114,7 +127,7 @@ Centered composition. Sharp engraving details. Realistic metal texture.
         velcro: 'no'
       });
 
-    } else {
+    } else { // patch
       if (!patchDescription?.trim()) {
         return res.status(400).json({ error: 'Patch description required' });
       }
@@ -141,7 +154,7 @@ Realistic stitching texture. Clean centered layout.
     }
 
   } catch (error) {
-    console.error(error);
+    console.error('Handler error:', error);
     return res.status(500).json({
       success: false,
       error: error.message || 'Generation failed'

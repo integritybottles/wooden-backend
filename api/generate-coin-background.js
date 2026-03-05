@@ -16,9 +16,29 @@ function runMiddleware(req, res, fn) {
   });
 }
 
-async function generateImage(prompt) {
-  // ✅ CORRECT MODEL NAME (as of March 2026)
-  const model = "gemini-3.1-flash-image-preview";
+/**
+ * Generate an image using Gemini.
+ * @param {string} prompt - Text description.
+ * @param {Array} files - Array of file objects from multer (optional).
+ * @returns {Promise<string>} - Base64 data URL of the generated image.
+ */
+async function generateImage(prompt, files = []) {
+  // Build the parts array: start with the text prompt
+  const parts = [{ text: prompt }];
+
+  // Add each uploaded image as inlineData
+  for (const file of files) {
+    // Convert buffer to base64
+    const base64Data = file.buffer.toString('base64');
+    parts.push({
+      inlineData: {
+        mimeType: file.mimetype,
+        data: base64Data,
+      },
+    });
+  }
+
+  const model = "gemini-3.1-flash-image-preview"; // current as of March 2026
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
   const response = await fetch(url, {
@@ -30,7 +50,7 @@ async function generateImage(prompt) {
       contents: [
         {
           role: "user",
-          parts: [{ text: prompt }],
+          parts: parts,
         },
       ],
       generationConfig: {
@@ -40,22 +60,17 @@ async function generateImage(prompt) {
   });
 
   const data = await response.json();
-
-  // Better error logging
   console.log("Gemini response:", JSON.stringify(data, null, 2));
 
-  // Check for API error first
   if (data.error) {
     throw new Error(`Gemini API error: ${data.error.message}`);
   }
-
   if (!data.candidates || !data.candidates.length) {
     throw new Error("Gemini returned no candidates");
   }
 
-  const parts = data.candidates[0].content.parts;
-  const imagePart = parts.find((p) => p.inlineData);
-
+  const partsResponse = data.candidates[0].content.parts;
+  const imagePart = partsResponse.find((p) => p.inlineData);
   if (!imagePart) {
     throw new Error("Gemini did not return an image");
   }
@@ -74,7 +89,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // Parse multipart form data
+    // Parse multipart form data – this populates req.body and req.files
     await runMiddleware(req, res, multerMiddleware);
 
     const {
@@ -85,6 +100,9 @@ export default async function handler(req, res) {
       patchDescription,
       velcro,
     } = req.body;
+
+    // Get uploaded files (if any)
+    const uploadedFiles = req.files || [];
 
     if (!type || (type !== "coin" && type !== "patch")) {
       return res.status(400).json({ error: "Invalid type" });
@@ -111,9 +129,10 @@ Centered composition, realistic engraved metal texture,
 sharp details, studio lighting, premium collectible coin.
 `;
 
+      // For coin, we send the same set of reference images to both prompts
       const [frontImageUrl, backImageUrl] = await Promise.all([
-        generateImage(frontPrompt),
-        generateImage(backPrompt),
+        generateImage(frontPrompt, uploadedFiles),
+        generateImage(backPrompt, uploadedFiles),
       ]);
 
       return res.status(200).json({
@@ -144,7 +163,7 @@ Realistic stitching texture, embroidered fabric, centered layout,
 high quality patch design.
 `;
 
-      const patchImageUrl = await generateImage(patchPrompt);
+      const patchImageUrl = await generateImage(patchPrompt, uploadedFiles);
 
       return res.status(200).json({
         success: true,

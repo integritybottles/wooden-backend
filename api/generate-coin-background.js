@@ -21,15 +21,15 @@ async function generateWithGemini(promptText, imageFiles = []) {
 
   imageFiles.slice(0, 3).forEach(file => {
     parts.push({
-      inline_data: {
-        mime_type: file.mimetype,
+      inlineData: {
+        mimeType: file.mimetype,
         data: file.buffer.toString('base64')
       }
     });
   });
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-image:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${process.env.GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -41,17 +41,28 @@ async function generateWithGemini(promptText, imageFiles = []) {
 
   const data = await response.json();
 
-  if (!data.candidates || !data.candidates[0]) {
+  if (!data.candidates?.length) {
+    console.log("Gemini response:", JSON.stringify(data, null, 2));
     throw new Error('No image generated');
   }
 
-  const imagePart = data.candidates[0].content.parts.find(p => p.inline_data);
+  const partsResp = data.candidates[0].content?.parts || [];
+
+  let imagePart = null;
+
+  for (const part of partsResp) {
+    if (part.inlineData?.data) {
+      imagePart = part;
+      break;
+    }
+  }
 
   if (!imagePart) {
+    console.log("Gemini response:", JSON.stringify(data, null, 2));
     throw new Error('No image returned from Gemini');
   }
 
-  return `data:${imagePart.inline_data.mime_type};base64,${imagePart.inline_data.data}`;
+  return `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
 }
 
 export default async function handler(req, res) {

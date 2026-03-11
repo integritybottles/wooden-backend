@@ -104,13 +104,21 @@ export default async function handler(req, res) {
       });
     }
 
+    // if (coin3D) {
+    //   attachments.push({
+    //     filename: "coin-3d-model.gltf",
+    //     content: coin3D.split("base64,")[1],
+    //     encoding: "base64",
+    //   });
+    // }
+
     if (coin3D) {
-      attachments.push({
-        filename: "coin-3d-model.gltf",
-        content: coin3D.split("base64,")[1],
-        encoding: "base64",
-      });
-    }
+  attachments.push({
+    filename: "coin-3d-screenshot.png",   // <-- changed from .gltf
+    content: coin3D.split("base64,")[1],
+    encoding: "base64",
+  });
+}
 
     uploadedFiles.forEach((file, index) => {
       attachments.push({

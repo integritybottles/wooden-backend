@@ -20,8 +20,8 @@ function runMiddleware(req, res, fn) {
 export default async function handler(req, res) {
 
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+res.setHeader("Access-Control-Allow-Headers", "*");
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
       generatedFront,
       generatedBack,
       generatedPatch,
-      coin3D
+      // coin3D
     } = req.body;
 
     const uploadedFiles = req.files || [];
@@ -112,13 +112,13 @@ export default async function handler(req, res) {
     //   });
     // }
 
-    if (coin3D) {
-  attachments.push({
-    filename: "coin-3d-screenshot.png",   // <-- changed from .gltf
-    content: coin3D.split("base64,")[1],
-    encoding: "base64",
-  });
-}
+//     if (coin3D) {
+//   attachments.push({
+//     filename: "coin-3d-screenshot.png",   // <-- changed from .gltf
+//     content: coin3D.split("base64,")[1],
+//     encoding: "base64",
+//   });
+// }
 
     uploadedFiles.forEach((file, index) => {
       attachments.push({

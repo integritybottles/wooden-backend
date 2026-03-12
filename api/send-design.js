@@ -1,12 +1,12 @@
 import multer from "multer";
 import nodemailer from "nodemailer";
+import cors from "cors";
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
+const corsMiddleware = cors({
+  origin: "*",
+  methods: ["POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"]
 });
-
-const multerMiddleware = upload.array("images", 5);
 
 function runMiddleware(req, res, fn) {
   return new Promise((resolve, reject) => {
@@ -17,13 +17,26 @@ function runMiddleware(req, res, fn) {
   });
 }
 
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+const multerMiddleware = upload.array("images", 5);
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export default async function handler(req, res) {
 
-  res.setHeader("Access-Control-Allow-Origin", "*");
-res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-res.setHeader("Access-Control-Allow-Headers", "*");
+  await runMiddleware(req, res, corsMiddleware);
 
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -45,8 +58,7 @@ res.setHeader("Access-Control-Allow-Headers", "*");
       velcro,
       generatedFront,
       generatedBack,
-      generatedPatch,
-      // coin3D
+      generatedPatch
     } = req.body;
 
     const uploadedFiles = req.files || [];
@@ -71,11 +83,11 @@ res.setHeader("Access-Control-Allow-Headers", "*");
       <p><b>Type:</b> ${type}</p>
       <p><b>Shape:</b> ${shape}</p>
 
-      ${frontDescription ? `<p><b>Front Description:</b><br>${frontDescription}</p>` : ""}
-      ${backDescription ? `<p><b>Back Description:</b><br>${backDescription}</p>` : ""}
-      ${patchDescription ? `<p><b>Patch Description:</b><br>${patchDescription}</p>` : ""}
+      ${frontDescription ? `<p><b>Front:</b> ${frontDescription}</p>` : ""}
+      ${backDescription ? `<p><b>Back:</b> ${backDescription}</p>` : ""}
+      ${patchDescription ? `<p><b>Patch:</b> ${patchDescription}</p>` : ""}
 
-      <p><b>Velcro:</b> ${velcro || "no"}</p>
+      <p><b>Velcro:</b> ${velcro}</p>
     `;
 
     const attachments = [];
@@ -104,22 +116,6 @@ res.setHeader("Access-Control-Allow-Headers", "*");
       });
     }
 
-    // if (coin3D) {
-    //   attachments.push({
-    //     filename: "coin-3d-model.gltf",
-    //     content: coin3D.split("base64,")[1],
-    //     encoding: "base64",
-    //   });
-    // }
-
-//     if (coin3D) {
-//   attachments.push({
-//     filename: "coin-3d-screenshot.png",   // <-- changed from .gltf
-//     content: coin3D.split("base64,")[1],
-//     encoding: "base64",
-//   });
-// }
-
     uploadedFiles.forEach((file, index) => {
       attachments.push({
         filename: `reference-${index + 1}-${file.originalname}`,
@@ -143,8 +139,7 @@ res.setHeader("Access-Control-Allow-Headers", "*");
 
     return res.status(500).json({
       success: false,
-      error: "Failed to send email",
+      error: "Email failed",
     });
-
   }
 }

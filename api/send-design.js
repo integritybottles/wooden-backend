@@ -1,13 +1,24 @@
 import multer from "multer";
 import nodemailer from "nodemailer";
-import cors from "cors";
 
-const corsMiddleware = cors({
-  origin: "*",
-  methods: ["POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"]
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+// ------------------ MULTER ------------------
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 4 * 1024 * 1024, // 4MB per file
+  },
 });
 
+const multerMiddleware = upload.array("images", 3);
+
+// helper
 function runMiddleware(req, res, fn) {
   return new Promise((resolve, reject) => {
     fn(req, res, (result) => {
@@ -17,29 +28,21 @@ function runMiddleware(req, res, fn) {
   });
 }
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-});
-
-const multerMiddleware = upload.array("images", 5);
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+// ------------------ API ------------------
 
 export default async function handler(req, res) {
 
-  await runMiddleware(req, res, corsMiddleware);
+  // CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ success: false });
   }
 
   try {
@@ -63,6 +66,8 @@ export default async function handler(req, res) {
 
     const uploadedFiles = req.files || [];
 
+    // ------------------ EMAIL ------------------
+
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -83,38 +88,20 @@ export default async function handler(req, res) {
       <p><b>Type:</b> ${type}</p>
       <p><b>Shape:</b> ${shape}</p>
 
-      ${frontDescription ? `<p><b>Front:</b> ${frontDescription}</p>` : ""}
-      ${backDescription ? `<p><b>Back:</b> ${backDescription}</p>` : ""}
-      ${patchDescription ? `<p><b>Patch:</b> ${patchDescription}</p>` : ""}
+      ${frontDescription ? `<p><b>Front Description:</b> ${frontDescription}</p>` : ""}
+      ${backDescription ? `<p><b>Back Description:</b> ${backDescription}</p>` : ""}
+      ${patchDescription ? `<p><b>Patch Description:</b> ${patchDescription}</p>` : ""}
 
       <p><b>Velcro:</b> ${velcro}</p>
+
+      <h3>Generated Design</h3>
+
+      ${generatedFront ? `<p>Front</p><img src="${generatedFront}" width="300"/>` : ""}
+      ${generatedBack ? `<p>Back</p><img src="${generatedBack}" width="300"/>` : ""}
+      ${generatedPatch ? `<p>Patch</p><img src="${generatedPatch}" width="300"/>` : ""}
     `;
 
     const attachments = [];
-
-    if (generatedFront) {
-      attachments.push({
-        filename: "coin-front.png",
-        content: generatedFront.split("base64,")[1],
-        encoding: "base64",
-      });
-    }
-
-    if (generatedBack) {
-      attachments.push({
-        filename: "coin-back.png",
-        content: generatedBack.split("base64,")[1],
-        encoding: "base64",
-      });
-    }
-
-    if (generatedPatch) {
-      attachments.push({
-        filename: "patch.png",
-        content: generatedPatch.split("base64,")[1],
-        encoding: "base64",
-      });
-    }
 
     uploadedFiles.forEach((file, index) => {
       attachments.push({
@@ -131,7 +118,9 @@ export default async function handler(req, res) {
       attachments,
     });
 
-    return res.status(200).json({ success: true });
+    return res.status(200).json({
+      success: true,
+    });
 
   } catch (error) {
 

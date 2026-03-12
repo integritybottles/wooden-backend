@@ -1,8 +1,34 @@
-import nodemailer from "nodemailer";
+import multer from "multer";
+import { Resend } from "resend";
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 4 * 1024 * 1024,
+  },
+});
+
+const multerMiddleware = upload.array("images", 3);
+
+function runMiddleware(req, res, fn) {
+  return new Promise((resolve, reject) => {
+    fn(req, res, (result) => {
+      if (result instanceof Error) return reject(result);
+      resolve(result);
+    });
+  });
+}
 
 export default async function handler(req, res) {
 
-  // --- CORS ---
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -17,6 +43,8 @@ export default async function handler(req, res) {
 
   try {
 
+    await runMiddleware(req, res, multerMiddleware);
+
     const {
       name,
       email,
@@ -29,17 +57,13 @@ export default async function handler(req, res) {
       velcro
     } = req.body;
 
-    // --- EMAIL TRANSPORT ---
-   const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-    // --- EMAIL HTML ---
+    const uploadedFiles = req.files || [];
+
+    const attachments = uploadedFiles.map((file) => ({
+      filename: file.originalname,
+      content: file.buffer,
+    }));
+
     const html = `
       <h2>New AI Design Submission</h2>
 
@@ -52,32 +76,31 @@ export default async function handler(req, res) {
       <p><b>Type:</b> ${type}</p>
       <p><b>Shape:</b> ${shape}</p>
 
-      ${frontDescription ? `<p><b>Front:</b> ${frontDescription}</p>` : ""}
-      ${backDescription ? `<p><b>Back:</b> ${backDescription}</p>` : ""}
-      ${patchDescription ? `<p><b>Patch:</b> ${patchDescription}</p>` : ""}
+      <p><b>Front:</b> ${frontDescription}</p>
+      <p><b>Back:</b> ${backDescription}</p>
+      <p><b>Patch:</b> ${patchDescription}</p>
 
       <p><b>Velcro:</b> ${velcro}</p>
     `;
 
-    await transporter.sendMail({
-      from: `"AI Coin Generator" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_RECEIVER,
-      subject: "New Coin/Patch Design Submission",
-      html
+    await resend.emails.send({
+      from: "AI Coin Generator <onboarding@resend.dev>",
+      to: ["youremail@example.com"],
+      subject: "New Coin / Patch Design",
+      html: html,
+      attachments: attachments,
     });
 
     return res.status(200).json({
-      success: true
+      success: true,
     });
 
   } catch (error) {
 
-    console.error("Send design error:", error);
+    console.error(error);
 
     return res.status(500).json({
       success: false,
-      error: "Email failed"
     });
-
   }
 }

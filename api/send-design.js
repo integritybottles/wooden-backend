@@ -1,38 +1,8 @@
-import multer from "multer";
 import nodemailer from "nodemailer";
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-// ------------------ MULTER ------------------
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 4 * 1024 * 1024, // 4MB per file
-  },
-});
-
-const multerMiddleware = upload.array("images", 3);
-
-// helper
-function runMiddleware(req, res, fn) {
-  return new Promise((resolve, reject) => {
-    fn(req, res, (result) => {
-      if (result instanceof Error) return reject(result);
-      resolve(result);
-    });
-  });
-}
-
-// ------------------ API ------------------
 
 export default async function handler(req, res) {
 
-  // CORS headers
+  // --- CORS ---
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -47,8 +17,6 @@ export default async function handler(req, res) {
 
   try {
 
-    await runMiddleware(req, res, multerMiddleware);
-
     const {
       name,
       email,
@@ -58,16 +26,10 @@ export default async function handler(req, res) {
       frontDescription,
       backDescription,
       patchDescription,
-      velcro,
-      // generatedFront,    // <-- commented out
-      // generatedBack,     // <-- commented out
-      // generatedPatch     // <-- commented out
+      velcro
     } = req.body;
 
-    // const uploadedFiles = req.files || [];  // <-- optional: also ignore uploaded files
-
-    // ------------------ EMAIL ------------------
-
+    // --- EMAIL TRANSPORT ---
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -76,6 +38,7 @@ export default async function handler(req, res) {
       },
     });
 
+    // --- EMAIL HTML ---
     const html = `
       <h2>New AI Design Submission</h2>
 
@@ -88,34 +51,22 @@ export default async function handler(req, res) {
       <p><b>Type:</b> ${type}</p>
       <p><b>Shape:</b> ${shape}</p>
 
-      ${frontDescription ? `<p><b>Front Description:</b> ${frontDescription}</p>` : ""}
-      ${backDescription ? `<p><b>Back Description:</b> ${backDescription}</p>` : ""}
-      ${patchDescription ? `<p><b>Patch Description:</b> ${patchDescription}</p>` : ""}
+      ${frontDescription ? `<p><b>Front:</b> ${frontDescription}</p>` : ""}
+      ${backDescription ? `<p><b>Back:</b> ${backDescription}</p>` : ""}
+      ${patchDescription ? `<p><b>Patch:</b> ${patchDescription}</p>` : ""}
 
       <p><b>Velcro:</b> ${velcro}</p>
-
-      <!-- Image sections removed for testing -->
     `;
-
-    const attachments = [];
-
-    // uploadedFiles.forEach((file, index) => {   // <-- commented out
-    //   attachments.push({
-    //     filename: `reference-${index + 1}-${file.originalname}`,
-    //     content: file.buffer,
-    //   });
-    // });
 
     await transporter.sendMail({
       from: `"AI Coin Generator" <${process.env.EMAIL_USER}>`,
       to: process.env.EMAIL_RECEIVER,
       subject: "New Coin/Patch Design Submission",
-      html,
-      attachments,
+      html
     });
 
     return res.status(200).json({
-      success: true,
+      success: true
     });
 
   } catch (error) {
@@ -124,7 +75,8 @@ export default async function handler(req, res) {
 
     return res.status(500).json({
       success: false,
-      error: "Email failed",
+      error: "Email failed"
     });
+
   }
 }

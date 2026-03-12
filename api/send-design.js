@@ -59,12 +59,12 @@ export default async function handler(req, res) {
       backDescription,
       patchDescription,
       velcro,
-      generatedFront,
-      generatedBack,
-      generatedPatch
+      // generatedFront,    // <-- commented out
+      // generatedBack,     // <-- commented out
+      // generatedPatch     // <-- commented out
     } = req.body;
 
-    const uploadedFiles = req.files || [];
+    // const uploadedFiles = req.files || [];  // <-- optional: also ignore uploaded files
 
     // ------------------ EMAIL ------------------
 
@@ -94,21 +94,17 @@ export default async function handler(req, res) {
 
       <p><b>Velcro:</b> ${velcro}</p>
 
-      <h3>Generated Design</h3>
-
-      ${generatedFront ? `<p>Front</p><img src="${generatedFront}" width="300"/>` : ""}
-      ${generatedBack ? `<p>Back</p><img src="${generatedBack}" width="300"/>` : ""}
-      ${generatedPatch ? `<p>Patch</p><img src="${generatedPatch}" width="300"/>` : ""}
+      <!-- Image sections removed for testing -->
     `;
 
     const attachments = [];
 
-    uploadedFiles.forEach((file, index) => {
-      attachments.push({
-        filename: `reference-${index + 1}-${file.originalname}`,
-        content: file.buffer,
-      });
-    });
+    // uploadedFiles.forEach((file, index) => {   // <-- commented out
+    //   attachments.push({
+    //     filename: `reference-${index + 1}-${file.originalname}`,
+    //     content: file.buffer,
+    //   });
+    // });
 
     await transporter.sendMail({
       from: `"AI Coin Generator" <${process.env.EMAIL_USER}>`,

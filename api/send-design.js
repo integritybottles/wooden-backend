@@ -64,14 +64,10 @@ export default async function handler(req, res) {
 
     let referenceSection = "";
 
-    if (referenceImages) {
-
-      const refs = JSON.parse(referenceImages);
-
-      refs.forEach(url => {
+    if (referenceImages && Array.isArray(referenceImages)) {
+      referenceImages.forEach(url => {
         referenceSection += `<p><img src="${url}" width="200"/></p>`;
       });
-
     }
 
     const mailOptions = {

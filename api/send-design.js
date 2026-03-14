@@ -1,5 +1,6 @@
 import multer from "multer";
 import { Resend } from "resend";
+import { put } from "@vercel/blob";
 
 export const config = {
   api: {
@@ -9,15 +10,17 @@ export const config = {
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// ---------- MULTER ----------
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 4 * 1024 * 1024,
+    fileSize: 2 * 1024 * 1024,
   },
 });
 
 const multerMiddleware = upload.array("images", 3);
 
+// ---------- RUN MIDDLEWARE ----------
 function runMiddleware(req, res, fn) {
   return new Promise((resolve, reject) => {
     fn(req, res, (result) => {
@@ -27,6 +30,7 @@ function runMiddleware(req, res, fn) {
   });
 }
 
+// ---------- HANDLER ----------
 export default async function handler(req, res) {
 
   res.setHeader("Access-Control-Allow-Origin", "https://allegiancecoin.com");
@@ -46,76 +50,90 @@ export default async function handler(req, res) {
     await runMiddleware(req, res, multerMiddleware);
 
     const {
-  name,
-  email,
-  phone,
-  type,
-  shape,
-  frontDescription,
-  backDescription,
-  patchDescription,
-  velcro,
-  generatedFront,
-  generatedBack,
-  generatedPatch
-} = req.body;
+      name,
+      email,
+      phone,
+      type,
+      shape,
+      frontDescription,
+      backDescription,
+      patchDescription,
+      velcro,
+      generatedFront,
+      generatedBack,
+      generatedPatch
+    } = req.body;
 
+    const uploadedFiles = req.files || [];
 
-   const referenceImages = req.body.referenceImages || [];
+    // ---------- UPLOAD TO BLOB ----------
+    const referenceUrls = [];
 
-const attachments = [];
+    for (const file of uploadedFiles) {
 
-if (Array.isArray(referenceImages)) {
+      const blob = await put(
+        `reference-images/${Date.now()}-${file.originalname}`,
+        file.buffer,
+        { access: "public" }
+      );
 
-  referenceImages.forEach((img, index) => {
+      referenceUrls.push(blob.url);
+    }
 
-    const base64Data = img.split(";base64,").pop();
+    // ---------- REFERENCE IMAGE HTML ----------
+    let referenceHtml = "";
 
-    attachments.push({
-      filename: `reference-${index + 1}.png`,
-      content: Buffer.from(base64Data, "base64")
+    referenceUrls.forEach((url, index) => {
+
+      referenceHtml += `
+        <p>
+        <b>Reference Image ${index + 1}</b><br>
+        <img src="${url}" width="250"/><br>
+        <a href="${url}">${url}</a>
+        </p>
+      `;
     });
 
-  });
+    // ---------- EMAIL HTML ----------
+    const html = `
+      <h2>New AI Design Submission</h2>
 
-}
+      <h3>Customer Info</h3>
+      <p><b>Name:</b> ${name}</p>
+      <p><b>Email:</b> ${email}</p>
+      <p><b>Phone:</b> ${phone}</p>
 
+      <h3>Design Details</h3>
+      <p><b>Type:</b> ${type}</p>
+      <p><b>Shape:</b> ${shape}</p>
 
-   const html = `
-<h2>New AI Design Submission</h2>
+      <p><b>Front Description:</b> ${frontDescription}</p>
+      <p><b>Back Description:</b> ${backDescription}</p>
+      <p><b>Patch Description:</b> ${patchDescription}</p>
 
-<h3>Customer Info</h3>
-<p><b>Name:</b> ${name}</p>
-<p><b>Email:</b> ${email}</p>
-<p><b>Phone:</b> ${phone}</p>
+      <p><b>Velcro:</b> ${velcro}</p>
 
-<h3>Design Details</h3>
-<p><b>Type:</b> ${type}</p>
-<p><b>Shape:</b> ${shape}</p>
+      <h3>Generated Design</h3>
 
-<p><b>Front Description:</b> ${frontDescription}</p>
-<p><b>Back Description:</b> ${backDescription}</p>
-<p><b>Patch Description:</b> ${patchDescription}</p>
+      ${generatedFront ? `<p><b>Front</b><br><img src="${generatedFront}" width="250"/></p>` : ""}
+      ${generatedBack ? `<p><b>Back</b><br><img src="${generatedBack}" width="250"/></p>` : ""}
+      ${generatedPatch ? `<p><b>Patch</b><br><img src="${generatedPatch}" width="250"/></p>` : ""}
 
-<p><b>Velcro:</b> ${velcro}</p>
+      <h3>Reference Images</h3>
 
-<h3>Generated Design</h3>
+      ${referenceHtml}
+    `;
 
-${generatedFront ? `<p><b>Front:</b><br><img src="${generatedFront}" width="250"/></p>` : ""}
-${generatedBack ? `<p><b>Back:</b><br><img src="${generatedBack}" width="250"/></p>` : ""}
-${generatedPatch ? `<p><b>Patch:</b><br><img src="${generatedPatch}" width="250"/></p>` : ""}
-`;
-
+    // ---------- SEND EMAIL ----------
     await resend.emails.send({
       from: "AI Coin Generator <onboarding@resend.dev>",
       to: "chandra@integritybottles.com",
       subject: "New Coin / Patch Design",
       html: html,
-      attachments: attachments,
     });
 
     return res.status(200).json({
-      success: true,
+      success: true
     });
 
   } catch (error) {
@@ -123,7 +141,7 @@ ${generatedPatch ? `<p><b>Patch:</b><br><img src="${generatedPatch}" width="250"
     console.error(error);
 
     return res.status(500).json({
-      success: false,
+      success: false
     });
   }
 }

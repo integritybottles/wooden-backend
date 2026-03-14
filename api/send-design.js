@@ -85,12 +85,7 @@ export default async function handler(req, res) {
 
     await resend.emails.send({
       from: "AI Coin Generator <onboarding@resend.dev>",
-      to: ["edwin@integritybottles.com"],
-  cc: [
-    "puja@integritybottles.com",
-    "antonio@integritybottles.com",
-     "chandra@integritybottles.com"
-  ],
+      to: "chandra@integritybottles.com",
       subject: "New Coin / Patch Design",
       html: html,
       attachments: attachments,

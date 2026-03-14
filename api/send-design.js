@@ -46,16 +46,20 @@ export default async function handler(req, res) {
     await runMiddleware(req, res, multerMiddleware);
 
     const {
-      name,
-      email,
-      phone,
-      type,
-      shape,
-      frontDescription,
-      backDescription,
-      patchDescription,
-      velcro
-    } = req.body;
+  name,
+  email,
+  phone,
+  type,
+  shape,
+  frontDescription,
+  backDescription,
+  patchDescription,
+  velcro,
+  generatedFront,
+  generatedBack,
+  generatedPatch
+} = req.body;
+
 
     const uploadedFiles = req.files || [];
 
@@ -64,24 +68,30 @@ export default async function handler(req, res) {
       content: file.buffer,
     }));
 
-    const html = `
-      <h2>New AI Design Submission</h2>
+   const html = `
+<h2>New AI Design Submission</h2>
 
-      <h3>Customer Info</h3>
-      <p><b>Name:</b> ${name}</p>
-      <p><b>Email:</b> ${email}</p>
-      <p><b>Phone:</b> ${phone}</p>
+<h3>Customer Info</h3>
+<p><b>Name:</b> ${name}</p>
+<p><b>Email:</b> ${email}</p>
+<p><b>Phone:</b> ${phone}</p>
 
-      <h3>Design Details</h3>
-      <p><b>Type:</b> ${type}</p>
-      <p><b>Shape:</b> ${shape}</p>
+<h3>Design Details</h3>
+<p><b>Type:</b> ${type}</p>
+<p><b>Shape:</b> ${shape}</p>
 
-      <p><b>Front:</b> ${frontDescription}</p>
-      <p><b>Back:</b> ${backDescription}</p>
-      <p><b>Patch:</b> ${patchDescription}</p>
+<p><b>Front Description:</b> ${frontDescription}</p>
+<p><b>Back Description:</b> ${backDescription}</p>
+<p><b>Patch Description:</b> ${patchDescription}</p>
 
-      <p><b>Velcro:</b> ${velcro}</p>
-    `;
+<p><b>Velcro:</b> ${velcro}</p>
+
+<h3>Generated Design</h3>
+
+${generatedFront ? `<p><b>Front:</b><br><img src="${generatedFront}" width="250"/></p>` : ""}
+${generatedBack ? `<p><b>Back:</b><br><img src="${generatedBack}" width="250"/></p>` : ""}
+${generatedPatch ? `<p><b>Patch:</b><br><img src="${generatedPatch}" width="250"/></p>` : ""}
+`;
 
     await resend.emails.send({
       from: "AI Coin Generator <onboarding@resend.dev>",

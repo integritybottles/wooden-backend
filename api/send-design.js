@@ -1,39 +1,16 @@
-import multer from "multer";
-import { Resend } from "resend";
-import { put } from "@vercel/blob";
+import nodemailer from "nodemailer";
 
 export const config = {
   api: {
-    bodyParser: false,
-  },
+    bodyParser: {
+      sizeLimit: "1mb"
+    }
+  }
 };
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// ---------- MULTER ----------
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 2 * 1024 * 1024,
-  },
-});
-
-const multerMiddleware = upload.array("images", 3);
-
-// ---------- RUN MIDDLEWARE ----------
-function runMiddleware(req, res, fn) {
-  return new Promise((resolve, reject) => {
-    fn(req, res, (result) => {
-      if (result instanceof Error) return reject(result);
-      resolve(result);
-    });
-  });
-}
-
-// ---------- HANDLER ----------
 export default async function handler(req, res) {
 
-  res.setHeader("Access-Control-Allow-Origin", "https://allegiancecoin.com");
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
@@ -42,12 +19,10 @@ export default async function handler(req, res) {
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({ success: false });
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-
-    await runMiddleware(req, res, multerMiddleware);
 
     const {
       name,
@@ -61,76 +36,78 @@ export default async function handler(req, res) {
       velcro,
       generatedFront,
       generatedBack,
-      generatedPatch
+      generatedPatch,
+      referenceImages
     } = req.body;
 
-    const uploadedFiles = req.files || [];
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
 
-    // ---------- UPLOAD TO BLOB ----------
-    const referenceUrls = [];
+    let imageSection = "";
 
-    for (const file of uploadedFiles) {
-
-      const blob = await put(
-        `reference-images/${Date.now()}-${file.originalname}`,
-        file.buffer,
-        { access: "public" }
-      );
-
-      referenceUrls.push(blob.url);
+    if (generatedFront) {
+      imageSection += `<p><b>Generated Front:</b><br><img src="${generatedFront}" width="200"/></p>`;
     }
 
-    // ---------- REFERENCE IMAGE HTML ----------
-    let referenceHtml = "";
+    if (generatedBack) {
+      imageSection += `<p><b>Generated Back:</b><br><img src="${generatedBack}" width="200"/></p>`;
+    }
 
-    referenceUrls.forEach((url, index) => {
+    if (generatedPatch) {
+      imageSection += `<p><b>Generated Patch:</b><br><img src="${generatedPatch}" width="200"/></p>`;
+    }
 
-      referenceHtml += `
-        <p>
-        <b>Reference Image ${index + 1}</b><br>
-        <img src="${url}" width="250"/><br>
-        <a href="${url}">${url}</a>
-        </p>
-      `;
-    });
+    let referenceSection = "";
 
-    // ---------- EMAIL HTML ----------
-    const html = `
-      <h2>New AI Design Submission</h2>
+    if (referenceImages) {
 
-      <h3>Customer Info</h3>
-      <p><b>Name:</b> ${name}</p>
-      <p><b>Email:</b> ${email}</p>
-      <p><b>Phone:</b> ${phone}</p>
+      const refs = JSON.parse(referenceImages);
 
-      <h3>Design Details</h3>
-      <p><b>Type:</b> ${type}</p>
-      <p><b>Shape:</b> ${shape}</p>
+      refs.forEach(url => {
+        referenceSection += `<p><img src="${url}" width="200"/></p>`;
+      });
 
-      <p><b>Front Description:</b> ${frontDescription}</p>
-      <p><b>Back Description:</b> ${backDescription}</p>
-      <p><b>Patch Description:</b> ${patchDescription}</p>
+    }
 
-      <p><b>Velcro:</b> ${velcro}</p>
+    const mailOptions = {
 
-      <h3>Generated Design</h3>
+      from: process.env.EMAIL_USER,
 
-      ${generatedFront ? `<p><b>Front</b><br><img src="${generatedFront}" width="250"/></p>` : ""}
-      ${generatedBack ? `<p><b>Back</b><br><img src="${generatedBack}" width="250"/></p>` : ""}
-      ${generatedPatch ? `<p><b>Patch</b><br><img src="${generatedPatch}" width="250"/></p>` : ""}
+      to: process.env.EMAIL_USER,
 
-      <h3>Reference Images</h3>
+      subject: "New Coin Design Request",
 
-      ${referenceHtml}
-    `;
+      html: `
+        <h2>Customer Information</h2>
 
-    // ---------- SEND EMAIL ----------
-    await resend.emails.send({
-      from: "AI Coin Generator <onboarding@resend.dev>",
-      to: "chandra@integritybottles.com",
-      subject: "New Coin / Patch Design",
-      html: html,
-    });
+        <p><b>Name:</b> ${name}</p>
+        <p><b>Email:</b> ${email}</p>
+        <p><b>Phone:</b> ${phone}</p>
+
+        <h2>Design Details</h2>
+
+        <p><b>Type:</b> ${type}</p>
+        <p><b>Shape:</b> ${shape}</p>
+        <p><b>Velcro:</b> ${velcro}</p>
+
+        <p><b>Front Description:</b> ${frontDescription}</p>
+        <p><b>Back Description:</b> ${backDescription}</p>
+        <p><b>Patch Description:</b> ${patchDescription}</p>
+
+        <h2>Generated Images</h2>
+        ${imageSection}
+
+        <h2>Reference Images</h2>
+        ${referenceSection}
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
 
     return res.status(200).json({
       success: true
@@ -141,7 +118,10 @@ export default async function handler(req, res) {
     console.error(error);
 
     return res.status(500).json({
-      success: false
+      success: false,
+      error: "Email sending failed"
     });
+
   }
+
 }

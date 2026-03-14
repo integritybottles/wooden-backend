@@ -29,7 +29,7 @@ function runMiddleware(req, res, fn) {
 
 export default async function handler(req, res) {
 
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", "https://allegiancecoin.com");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
@@ -61,12 +61,25 @@ export default async function handler(req, res) {
 } = req.body;
 
 
-    const uploadedFiles = req.files || [];
+   const referenceImages = req.body.referenceImages || [];
 
-    const attachments = uploadedFiles.map((file) => ({
-      filename: file.originalname,
-      content: file.buffer,
-    }));
+const attachments = [];
+
+if (Array.isArray(referenceImages)) {
+
+  referenceImages.forEach((img, index) => {
+
+    const base64Data = img.split(";base64,").pop();
+
+    attachments.push({
+      filename: `reference-${index + 1}.png`,
+      content: Buffer.from(base64Data, "base64")
+    });
+
+  });
+
+}
+
 
    const html = `
 <h2>New AI Design Submission</h2>

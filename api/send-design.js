@@ -1,4 +1,6 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const config = {
   api: {
@@ -40,14 +42,6 @@ export default async function handler(req, res) {
       referenceImages
     } = req.body;
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
-
     let imageSection = "";
 
     if (generatedFront) {
@@ -70,44 +64,38 @@ export default async function handler(req, res) {
       });
     }
 
-    const mailOptions = {
+    const html = `
+      <h2>Customer Information</h2>
 
-      from: process.env.EMAIL_USER,
+      <p><b>Name:</b> ${name}</p>
+      <p><b>Email:</b> ${email}</p>
+      <p><b>Phone:</b> ${phone}</p>
 
-      to: process.env.EMAIL_USER,
+      <h2>Design Details</h2>
 
+      <p><b>Type:</b> ${type}</p>
+      <p><b>Shape:</b> ${shape}</p>
+      <p><b>Velcro:</b> ${velcro}</p>
+
+      <p><b>Front Description:</b> ${frontDescription}</p>
+      <p><b>Back Description:</b> ${backDescription}</p>
+      <p><b>Patch Description:</b> ${patchDescription}</p>
+
+      <h2>Generated Images</h2>
+      ${imageSection}
+
+      <h2>Reference Images</h2>
+      ${referenceSection}
+    `;
+
+    await resend.emails.send({
+      from: "Coin Designer <design@allegiancecoin.com>",
+      to: ["your@email.com"],
       subject: "New Coin Design Request",
-
-      html: `
-        <h2>Customer Information</h2>
-
-        <p><b>Name:</b> ${name}</p>
-        <p><b>Email:</b> ${email}</p>
-        <p><b>Phone:</b> ${phone}</p>
-
-        <h2>Design Details</h2>
-
-        <p><b>Type:</b> ${type}</p>
-        <p><b>Shape:</b> ${shape}</p>
-        <p><b>Velcro:</b> ${velcro}</p>
-
-        <p><b>Front Description:</b> ${frontDescription}</p>
-        <p><b>Back Description:</b> ${backDescription}</p>
-        <p><b>Patch Description:</b> ${patchDescription}</p>
-
-        <h2>Generated Images</h2>
-        ${imageSection}
-
-        <h2>Reference Images</h2>
-        ${referenceSection}
-      `
-    };
-
-    await transporter.sendMail(mailOptions);
-
-    return res.status(200).json({
-      success: true
+      html
     });
+
+    return res.status(200).json({ success: true });
 
   } catch (error) {
 

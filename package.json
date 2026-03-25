@@ -1,23 +1,11 @@
 {
-  "name": "coin-ai-api",
+  "name": "wooden-backend",
   "version": "1.0.0",
   "type": "module",
-  "engines": {
-    "node": "24.x"
-  },
   "dependencies": {
-    "@vercel/blob": "^2.3.1",
-    "canvas": "^3.2.1",
-    "formidable": "^3.5.4",
-    "gltf-pipeline": "^4.3.0",
-    "multer": "^2.1.1",
-    "nodemailer": "^8.0.2",
-    "openai": "^4.104.0",
-    "potrace": "^2.1.8",
-    "resend": "^6.9.3",
-    "sharp": "^0.34.5",
-    "three": "^0.182.0",
-    "three-stdlib": "^2.36.1",
-    "uuid": "^13.0.0"
+    "@vercel/blob": "^0.23.0",
+    "formidable": "^3.5.1",
+    "multer": "^1.4.5-lts.1",
+    "resend": "^3.2.0"
   }
 }

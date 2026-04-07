@@ -66,7 +66,7 @@ export default async function handler(req, res) {
 
     await resend.emails.send({
       from: "Wooden Items Designer <onboarding@resend.dev>",
-      to: "edwin@integritybottles.com", // replace with your team email
+      to: "lcww@integritybottles.com", // replace with your team email
       subject: "New Wooden Item Design Request",
       html,
     });

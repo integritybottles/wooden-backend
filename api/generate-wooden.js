@@ -73,20 +73,52 @@ export default async function handler(req, res) {
 
     const uploadedFiles = req.files || [];
 
-    if (!type || !dimensions || !woodType || !designDescription) {
+    // Basic validation
+    if (!type || !designDescription) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const prompt = `
-      Photorealistic image of a custom wooden ${type}.
-      Wood type: ${woodType}.
-      Dimensions: ${dimensions}.
-      Finish: ${finish || "natural"}.
-      Engraving: ${engraving === "yes" ? "yes, laser engraved" : "no, printed"}.
-      Design: ${designDescription}.
-      Show the wooden item with the design clearly visible, natural lighting, high quality.
-      Background neutral, focus on the item.
-    `;
+    // For non-custom plaques, dimensions and woodType are required
+    if (type !== 'custom-plaque') {
+      if (!dimensions || !woodType) {
+        return res.status(400).json({ error: "Dimensions and wood type are required for this product type" });
+      }
+    }
+
+    let prompt = "";
+
+    if (type === 'custom-plaque') {
+      prompt = `
+        Photorealistic image of a custom wooden plaque.
+        Design description: ${designDescription}
+        Engraving: ${engraving === "yes" ? "yes, laser engraved" : "no, printed"}.
+        Show the wooden item with the design clearly visible, natural lighting, high quality.
+        Background neutral, focus on the item.
+      `;
+    } 
+    else if (type === 'shadowbox') {
+      prompt = `
+        Photorealistic image of a custom wooden shadow box.
+        Dimensions: ${dimensions}.
+        Wood stain: ${woodType}.
+        Engraving: ${engraving === "yes" ? "yes, laser engraved" : "no, printed"}.
+        Design: ${designDescription}.
+        Show the wooden item with the design clearly visible, natural lighting, high quality.
+        Background neutral, focus on the item.
+      `;
+    } 
+    else if (type === 'squared-plaque') {
+      // For squared plaque, "finish" contains the selected type (e.g., High Gloss Mahogany)
+      prompt = `
+        Photorealistic image of a custom wooden squared plaque.
+        Dimensions: ${dimensions}.
+        Finish: ${finish || "natural"}.
+        Engraving: ${engraving === "yes" ? "yes, laser engraved" : "no, printed"}.
+        Design: ${designDescription}.
+        Show the wooden item with the design clearly visible, natural lighting, high quality.
+        Background neutral, focus on the item.
+      `;
+    }
 
     const imageUrl = await generateImage(prompt, uploadedFiles);
 

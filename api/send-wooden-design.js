@@ -37,10 +37,32 @@ export default async function handler(req, res) {
     }
 
     let referenceSection = "";
-    if (referenceImages && Array.isArray(referenceImages)) {
+    if (referenceImages && Array.isArray(referenceImages) && referenceImages.length > 0) {
+      referenceSection = "<h2>Reference Images</h2>";
       referenceImages.forEach(url => {
         referenceSection += `<p><img src="${url}" width="200"/></p>`;
       });
+    } else {
+      referenceSection = "<h2>Reference Images</h2><p>None provided</p>";
+    }
+
+    // Format display strings based on product type
+    let dimensionsDisplay = dimensions;
+    let woodTypeDisplay = woodType;
+    let finishDisplay = finish || "natural";
+
+    if (productType === 'custom-plaque') {
+      dimensionsDisplay = "Custom (see description)";
+      woodTypeDisplay = "Custom (see description)";
+      finishDisplay = "Custom (see description)";
+    } else if (productType === 'squared-plaque') {
+      // For squared plaque, the "finish" field holds the actual type (e.g., High Gloss Mahogany)
+      // and woodType may be "custom" placeholder. Show finish as "Type".
+      woodTypeDisplay = finishDisplay; // Type
+      finishDisplay = "N/A (see Type)";
+    } else if (productType === 'shadowbox') {
+      // Shadow box: woodType is the stain, finish is not used
+      finishDisplay = "Not applicable for shadow box";
     }
 
     const html = `
@@ -51,23 +73,22 @@ export default async function handler(req, res) {
 
       <h2>Design Details</h2>
       <p><b>Product Type:</b> ${productType}</p>
-      <p><b>Dimensions:</b> ${dimensions}</p>
-      <p><b>Wood Type:</b> ${woodType}</p>
-      <p><b>Finish:</b> ${finish || "natural"}</p>
+      <p><b>Dimensions:</b> ${dimensionsDisplay}</p>
+      <p><b>${productType === 'squared-plaque' ? 'Type' : 'Wood Stain / Type'}:</b> ${woodTypeDisplay}</p>
+      <p><b>Finish:</b> ${finishDisplay}</p>
       <p><b>Engraving:</b> ${engraving === "yes" ? "Yes (laser engraved)" : "No (printed)"}</p>
       <p><b>Design Description:</b> ${designDescription}</p>
 
       <h2>Generated Image</h2>
       ${imageSection}
 
-      <h2>Reference Images</h2>
       ${referenceSection}
     `;
 
     await resend.emails.send({
       from: "Wooden Items Designer <onboarding@resend.dev>",
       to: "lcww@integritybottles.com", // replace with your team email
-      subject: "New Wooden Item Design Request",
+      subject: `New ${productType} Design Request from ${name}`,
       html,
     });
 
